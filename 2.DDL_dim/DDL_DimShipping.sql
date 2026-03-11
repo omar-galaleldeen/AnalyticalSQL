@@ -51,11 +51,14 @@ group by shipmethodid
 -- Viewing the Shipping methods:
 SELECT  * FROM AdventureWorks.Purchasing.ShipMethod; 
 
+
+SELECT * FROM [AdventureWorksDW].[dbo].[DimShipMethod]
+
 --DDL: DimShipMethod:
 USE [AdventureWorksDW]
 GO
 CREATE TABLE [dbo].[DimShipMethod](
-	[ShipMethodID] [int] IDENTITY(1,1) NOT NULL,
+	[ShipMethodKey] [int] IDENTITY(1,1) NOT NULL,
 	[Name] [nvarchar](50) NOT NULL,
     [DeliveryDays] smallint NOT NULL,
 	[BasePrice] [money] NOT NULL,
@@ -63,7 +66,7 @@ CREATE TABLE [dbo].[DimShipMethod](
 	[ModifiedDate] [datetime] NOT NULL,
  CONSTRAINT [PK_ShipMethod_ShipMethodID] PRIMARY KEY CLUSTERED 
     (
-	[ShipMethodID] ASC
+	[ShipMethodKey] ASC
     )
 )
 GO
@@ -84,7 +87,7 @@ VALUES
     ('CARGO TRANSPORT 5', 7, 8.99, 1.49, '2019-04-30 00:00:00.000');
 
 -- Verify the results
-SELECT * FROM [AdventureWorksDW].[dbo].[DimShipMethod] ORDER BY [ShipMethodID];
+SELECT * FROM [AdventureWorksDW].[dbo].[DimShipMethod] ORDER BY [ShipMethodKey];
 
 
 
