@@ -30,7 +30,7 @@ LEFT JOIN AdventureWorks.Production.ProductCategory as PG
 ON PSG.ProductCategoryID = PG.ProductCategoryID)
 
 -- Population
-INSERT INTO [dbo].[DimCategory] (
+INSERT INTO [AdventureWorksDW].[dbo].[DimCategory] (
     [CategoryKey],
     [CategoryName],
     [ParentCategory],
@@ -43,6 +43,14 @@ SELECT
     ModifiedDate
 FROM t1
 
+-- Use category key 0 for no category
+INSERT INTO [AdventureWorksDW].[dbo].[DimCategory] (
+    [CategoryKey],
+    [CategoryName],
+    [ParentCategory],
+    [ModifiedDate]
+) VALUES (0, 'Unassigned', NULL, CONVERT(DATETIME, '20250101', 112));
+
 -- View the populated data
-SELECT * FROM [dbo].[DimCategory] ORDER BY CategoryKey;
+SELECT * FROM [AdventureWorksDW].[dbo].[DimCategory] ORDER BY CategoryKey;
 GO

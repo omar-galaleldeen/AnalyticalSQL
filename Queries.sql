@@ -32,7 +32,8 @@ SELECT TOP 5 * FROM AdventureWorks.Production.ProductSubcategory; --not all of t
 SELECT TOP 5 * FROM AdventureWorks.Production.ProductCategory; -- no seasonal flag
 
 -- 4. Dim Payment
-SELECT TOP 5 * FROM AdventureWorks.Sales.CreditCard; -- Credit card types, if in the orders table it is null then cash
+SELECT * FROM AdventureWorks.Sales.CreditCard; -- Credit card types, if in the orders table it is null then cash
+SELECT * FROM AdventureWorks.Sales.PersonCreditCard; -- Credit card types, if in the orders table it is null then cash
 SELECT TOP 5 * FROM AdventureWorks.Sales.SalesOrderHeader; -- fact
 
 select CAST(modifiedDAte as time) from AdventureWorks.Sales.SalesOrderHeader
@@ -47,8 +48,8 @@ SELECT TOP 5 * FROM AdventureWorks.Sales.SalesOrderHeader; -- fact for ship date
 
 
 -- Fact
-SELECT TOP 5 * FROM AdventureWorks.Sales.SalesOrderHeader;
-SELECT TOP 5 * FROM AdventureWorks.Sales.SalesOrderDetail; -- missing cost and profit
+SELECT * FROM AdventureWorks.Sales.SalesOrderHeader
+SELECT  * FROM AdventureWorks.Sales.SalesOrderDetail; -- missing cost and profit
 
 
 
