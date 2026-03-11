@@ -10,56 +10,98 @@ SELECT * FROM AdventureWorks.Production.Product;
 -- Exploration: Our DimCategory
 SELECT * FROM [AdventureWorksDW].[dbo].[DimCategory]; -- The category key here is the subcategory key in the OLTP.Products table
 
+-- DDL
+CREATE TABLE [AdventureWorksDW].[dbo].[DimProduct] (
+    ProductKey          INT             PRIMARY KEY,
+    ProductID           NVARCHAR(50),
+    ProductName         NVARCHAR(100),
+    ParentProductName   NVARCHAR(100),
+    Brand               NVARCHAR(50),
+    CategoryKey         INT             DEFAULT 0 REFERENCES [AdventureWorksDW].[dbo].[DimCategory](CategoryKey),
+    Cost                MONEY,
+    LaunchDate          DATETIME,
+    EndDate             DATETIME,
+    SafeStockQuantity   INT,
+    StockQuantity       INT,
+    StockStatus         NVARCHAR(20)    CHECK (StockStatus IN ('In-Stock', 'Critical', 'Out-of-Stock'))
+);
+
+
 -- Source table
-WITH t1 as(
-SELECT
-	APP.ProductID,
-	APP.ProductNumber, --Candidate Key: contains product + specific version
-    APP.Name as ProductName,  -- Product Name + specific version i.e. Small, Medium, Large
-    APM.Name as ParentProductName,
-	CASE WHEN MakeFlag = 1 THEN 'Manufactured' ELSE 'In-House' end as Brand,
-	ProductSubcategoryID as CategoryKey,
-    APP.StandardCost as Cost,
-    -- APP.ListPrice as Price, -- Price will be excluded as it is calculated from fact table.
-    APP.SellStartdate as LaunchDate,
-    APP.SellEndDate as EndDate,
-    APP.SafetyStockLevel as SafeStockQuantity,
-    INV.quantity as StockQuantity,
-    -- Stock classifier
-    CASE WHEN inv.quantity = 0 then 'Out-of-Stock'
-         WHEN APP.SafetyStockLevel >  INV.quantity Then 'Critical' 
-         else 'In-Stock' end as 'StockStatus'
-FROM AdventureWorks.Production.Product APP
-LEFT JoIN AdventureWorks.Production.ProductModel APM
-ON APP.ProductModelID = APM.ProductModelID
-LEFT  JOIN AdventureWorks.Production.ProductInventory INV
-ON APP.productID = INV.productID)
+TRUNCATE TABLE [AdventureWorksDW].[dbo].[DimProduct];
 
+WITH T1 AS (
+    SELECT
+        APP.ProductID,
+        APP.ProductNumber,
+        APP.Name                                                        AS ProductName,
+        APM.Name                                                        AS ParentProductName,
+        CASE WHEN MakeFlag = 1 THEN 'Manufactured' ELSE 'In-House' END AS Brand,
+        ProductSubcategoryID                                            AS CategoryKey,
+        APP.StandardCost                                                AS Cost,
+        APP.SellStartDate                                               AS LaunchDate,
+        APP.SellEndDate                                                 AS EndDate,
+        APP.SafetyStockLevel                                            AS SafeStockQuantity,
+        INV.StockQuantity                                               -- from subquery
+    FROM AdventureWorks.Production.Product APP
+    LEFT JOIN AdventureWorks.Production.ProductModel APM
+        ON APP.ProductModelID = APM.ProductModelID
+    LEFT JOIN (
+                SELECT ProductID, SUM(Quantity) AS StockQuantity       -- aggregating across al locations
+                FROM AdventureWorks.Production.ProductInventory
+                GROUP BY ProductID
+              ) INV
+        ON APP.ProductID = INV.ProductID
+),
+T2 AS (
+    SELECT
+        ProductID                              AS ProductKey,
+        ProductNumber                          AS ProductID,
+        ProductName,
+        ISNULL(ParentProductName, ProductName) AS ParentProductName,
+        Brand,
+        ISNULL(CategoryKey, 0)                 AS CategoryKey,
+        Cost,
+        LaunchDate,
+        EndDate,
+        SafeStockQuantity,
+        ISNULL(StockQuantity, 0)               AS StockQuantity,
+        CASE
+            WHEN ISNULL(StockQuantity, 0) = 0                 THEN 'Out-of-Stock'
+            WHEN SafeStockQuantity > ISNULL(StockQuantity, 0) THEN 'Critical'
+            ELSE                                                    'In-Stock'
+        END                                                     AS StockStatus
+    FROM T1
+)
 
--- Handle Nulls in T1 
-SELECT 
+INSERT INTO [AdventureWorksDW].[dbo].[DimProduct] (
+    ProductKey,
     ProductID,
-    ProductNumber,
     ProductName,
-    ISNULL(ParentProductName, ProductName) AS ParentProductName,
+    ParentProductName,
     Brand,
-    ISNULL(CategoryKey, 0) as CategoryKey,
+    CategoryKey,
     Cost,
     LaunchDate,
     EndDate,
     SafeStockQuantity,
     StockQuantity,
     StockStatus
-FROM T1
+)
+SELECT
+    ProductKey,
+    ProductID,
+    ProductName,
+    ParentProductName,
+    Brand,
+    CategoryKey,
+    Cost,
+    LaunchDate,
+    EndDate,
+    SafeStockQuantity,
+    StockQuantity,
+    StockStatus
+FROM T2;
 
-
-
-
-
-SELECT TOP (1000) [ProductModelID]
-      ,[Name]
-      ,[CatalogDescription]
-      ,[Instructions]
-      ,[rowguid]
-      ,[ModifiedDate]
-  FROM [AdventureWorks].[Production].[ProductModel]
+-- Validate:
+SELECT * FROM [AdventureWorksDW].[dbo].[DimProduct];
