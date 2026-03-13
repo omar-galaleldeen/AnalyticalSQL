@@ -1,81 +1,133 @@
---A. Time-Based Performance Analysis
-use AdventureWorksDW
-select * from FactOrders
-
---1. Produce cumulative revenue over time to understand long-term growth behavior.
-select d.fulldate,sum(netamount) daily_revenue ,sum(sum(netamount)) over(order by d.fulldate) as comulative_daily_revenue
-from factorders f
-inner join dimdate d
-on f.datekey = d.datekey
-group by d.fulldate
+SELECT 
+    d.FullDate, 
+    SUM(f.NetAmount) AS DailyRevenue, 
+    SUM(SUM(f.NetAmount)) OVER (ORDER BY d.FullDate) AS CumulativeDailyRevenue
+FROM FactOrders f
+JOIN DimDate d ON f.DateKey = d.DateKey
+GROUP BY d.FullDate;
 
 
---2. Measure Month-to-Date performance to evaluate intra-month trends.
-select year(d.FullDate) as year, month(d.fulldate) as month, d.FullDate , sum(f.profitamount) monthly_revenue, 
-sum(sum(Profitamount)) over(partition by year(d.fulldate), month(d.fulldate) order by d.fulldate rows between unbounded preceding and current row) as month_to_date_profit
-from FactOrders f
-join DimDate d
-on f.DateKey = d.DateKey
-group by year(d.FullDate), month(d.fulldate), d.FullDate
-order by year(d.FullDate), month(d.fulldate), d.FullDate
+
+-------------
+
+SELECT 
+    d.Year, 
+    d.Month, 
+    d.FullDate, 
+    SUM(f.ProfitAmount) AS DailyProfit, 
+    SUM(SUM(f.ProfitAmount)) OVER (
+        PARTITION BY d.Year, d.Month 
+        ORDER BY d.FullDate 
+        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+    ) AS MonthToDateProfit
+FROM FactOrders f
+JOIN DimDate d ON f.DateKey = d.DateKey
+GROUP BY d.Year, d.Month, d.FullDate
+ORDER BY d.Year, d.Month, d.FullDate;
 
 
---3. Measure Year-to-Date profit to assess annual performance progression.
-select year(d.FullDate) as year, month(d.fulldate) as month, d.FullDate , sum(f.profitamount) monthly_revenue, 
-sum(sum(Profitamount)) over(partition by year(d.fulldate) order by d.fulldate rows between unbounded preceding and current row) as year_to_date_profit
-from FactOrders f
-join DimDate d
-on f.DateKey = d.DateKey
-group by year(d.FullDate), month(d.fulldate), d.FullDate
-order by year(d.FullDate), month(d.fulldate), d.FullDate
+------------
 
---4. Smooth short-term volatility using moving average trend analysis.
-select year(d.FullDate) as year, month(d.fulldate) as month, d.FullDate , sum(f.profitamount) monthly_revenue, 
-avg(sum(profitamount)) over(order by d.fulldate rows between 2 preceding and current row) as moving_average_profit
-from FactOrders f
-join DimDate d
-on f.DateKey = d.DateKey
-group by year(d.FullDate), month(d.fulldate), d.FullDate
-order by year(d.FullDate), month(d.fulldate), d.FullDate
-
-
---5. Compare current month performance with previous month to detect growth or decline.
-with comparison as (
-select d.fulldate, sum(NetAmount) as current_month_revenue, 
-lag(sum(netamount),1,0) over(order by year(d.fulldate), month(d.fulldate)) as previous_month_revenue
-from FactOrders f
-join DimDate d
-on f.DateKey = d.DateKey
-group by d.fulldate
-)
-
-select c.*, case when current_month_revenue > previous_month_revenue then 'Growth' 
-when current_month_revenue < previous_month_revenue then 'Decline' 
-else 'No Change' end as performance_trend
-from comparison c
+SELECT 
+    d.Year, 
+    d.Month, 
+    d.FullDate, 
+    SUM(f.ProfitAmount) AS DailyProfit, 
+    SUM(SUM(f.ProfitAmount)) OVER (
+        PARTITION BY d.Year 
+        ORDER BY d.FullDate 
+        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+    ) AS YearToDateProfit
+FROM FactOrders f
+JOIN DimDate d ON f.DateKey = d.DateKey
+GROUP BY d.Year, d.Month, d.FullDate
+ORDER BY d.Year, d.Month, d.FullDate;
 
 
---6. Identify acceleration or deceleration in revenue dynamics.
+--------------
 
-with daily_revenue as (
-select d.fulldate, sum(netamount) as daily_revenue
-from FactOrders f
-join DimDate d
-on f.DateKey = d.DateKey
-group by d.fulldate
+SELECT 
+    d.FullDate, 
+    SUM(f.ProfitAmount) AS DailyProfit, 
+    AVG(SUM(f.ProfitAmount)) OVER (
+        ORDER BY d.FullDate 
+        ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
+    ) AS MovingAverageProfit
+FROM FactOrders f
+JOIN DimDate d ON f.DateKey = d.DateKey
+GROUP BY d.FullDate
+ORDER BY d.FullDate;
+
+-----------------
+
+WITH MonthlyRevenue AS (
+    SELECT 
+        d.Year, 
+        d.MonthName,
+        d.Month, 
+        SUM(f.NetAmount) AS CurrentMonthRevenue
+    FROM FactOrders f
+    JOIN DimDate d ON f.DateKey = d.DateKey
+    GROUP BY d.Year, d.MonthName, d.Month
 ),
-
-revenue_change as (
-select fulldate, daily_revenue, daily_revenue - lag(daily_revenue,1,0) over(order by fulldate) as revenue_change
-from daily_revenue
-),
-
-revenue_acceleration as (
-select fulldate, daily_revenue, revenue_change, revenue_change - lag(revenue_change,1,0) over(order by fulldate) as revenue_acceleration
-from revenue_change d
+Comparison AS (
+    SELECT 
+        Year,
+        MonthName,
+		Month,
+        CurrentMonthRevenue,
+        LAG(CurrentMonthRevenue, 1, 0) OVER (ORDER BY Year, Month) AS PreviousMonthRevenue
+    FROM MonthlyRevenue
 )
+SELECT 
+    Year,
+    MonthName,
+    CurrentMonthRevenue,
+    PreviousMonthRevenue,
+    CASE 
+        WHEN CurrentMonthRevenue > PreviousMonthRevenue THEN 'Growth' 
+        WHEN CurrentMonthRevenue < PreviousMonthRevenue THEN 'Decline' 
+        ELSE 'No Change' 
+    END AS PerformanceTrend
+FROM Comparison
+ORDER BY Year, Month;
 
-select *, case when revenue_acceleration > 0 then 'Acceleration' 
-when revenue_acceleration < 0 then 'Deceleration' 
-else 'No Change' end as acceleration_trend
-from revenue_acceleration
+
+------------
+
+
+WITH DailyRevenue AS (
+    SELECT 
+        d.FullDate, 
+        SUM(f.NetAmount) AS DailyRevenue
+    FROM FactOrders f
+    JOIN DimDate d ON f.DateKey = d.DateKey
+    GROUP BY d.FullDate
+),
+RevenueChange AS (
+    SELECT 
+        FullDate, 
+        DailyRevenue, 
+        DailyRevenue - LAG(DailyRevenue, 1, 0) OVER (ORDER BY FullDate) AS RevenueChange
+    FROM DailyRevenue
+),
+RevenueAcceleration AS (
+    SELECT 
+        FullDate, 
+        DailyRevenue, 
+        RevenueChange, 
+        RevenueChange - LAG(RevenueChange, 1, 0) OVER (ORDER BY FullDate) AS Acceleration
+    FROM RevenueChange
+)
+SELECT 
+    *, 
+    CASE 
+        WHEN Acceleration > 0 THEN 'Acceleration' 
+        WHEN Acceleration < 0 THEN 'Deceleration' 
+        ELSE 'No Change' 
+    END AS AccelerationTrend
+FROM RevenueAcceleration
+ORDER BY FullDate;
+
+--------------
+
