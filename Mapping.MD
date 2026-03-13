@@ -166,9 +166,50 @@ SELECT COUNT(*) AS TotalRows FROM [AdventureWorksDW].[dbo].[FactOrders];
 ```
 
 ---
+## Full Schema
+---
 
-**Two things to watch for:**
-| Risk | Reason | Fix |
+### 📊 Star Schema — AdventureWorksDW
+
+**Fact Table: `FactOrders`**
+| Column | Type | Note |
 |---|---|---|
-| FK violation on `CustomerKey` | ~700 orders may belong to store customers (no PersonID) who may not be in `DimCustomer` | Run `SELECT CustomerID FROM Sales.SalesOrderHeader WHERE CustomerID NOT IN (SELECT CustomerKey FROM DimCustomer)` first |
-| FK violation on `ProductKey` | Some products in order detail may not be in `DimProduct` | Run same check for ProductID |
+| `FactKey` | INT IDENTITY | Surrogate PK |
+| `SalesOrderID` | INT | Degenerate dimension |
+| `DateKey` | INT | FK → DimDate |
+| `CustomerKey` | INT | FK → DimCustomer |
+| `ProductKey` | INT | FK → DimProduct |
+| `CategoryKey` | INT | FK → DimCategory |
+| `PaymentMethodKey` | TINYINT | FK → DimPaymentMethod |
+| `ShipMethodKey` | INT | FK → DimShipMethod |
+| `Quantity` | SMALLINT | Measure |
+| `UnitPrice` | MONEY | Measure |
+| `GrossAmount` | MONEY | UnitPrice × Quantity |
+| `DiscountAmount` | MONEY | Discount applied |
+| `NetAmount` | MONEY | After discount |
+| `CostAmount` | MONEY | StandardCost × Quantity |
+| `ProfitAmount` | MONEY | NetAmount - CostAmount |
+
+---
+
+**Dimensions:**
+
+| Table | PK | Key Columns |
+|---|---|---|
+| `DimDate` | `DateKey` | FullDate, Day, Month, MonthName, Quarter, Year, WeekNumOfYear |
+| `DimCustomer` | `CustomerKey` | AccountID, PersonID, Gender, Zone, Country, Region, RegistrationDate |
+| `DimProduct` | `ProductKey` | ProductID, ProductName, ParentProductName, Brand, CategoryKey, Cost, LaunchDate, EndDate, SafeStockQuantity, StockQuantity, StockStatus |
+| `DimCategory` | `CategoryKey` | CategoryName, ParentCategory, ModifiedDate |
+| `DimPaymentMethod` | `PaymentMethodKey` | PaymentMethodName, IsActive |
+| `DimShipMethod` | `ShipMethodKey` | Name, DeliveryDays, BasePrice, ShipRate |
+
+---
+
+**Key relationships:**
+- `DimProduct` → `DimCategory` via `CategoryKey` ✅
+- `FactOrders` → all 6 dimensions via FK constraints ✅
+- `DimShipMethod.ShipMethodKey` is `IDENTITY(1,1)` — values 1–5 ✅
+- `DimPaymentMethod.PaymentMethodKey` is `TINYINT` — values 1–4 ✅
+- Gender is simulated on `DimCustomer` as `NCHAR(1)` — `M` or `F` ✅
+- `StockStatus` has CHECK constraint: `In-Stock`, `Critical`, `Out-of-Stock` ✅
+
