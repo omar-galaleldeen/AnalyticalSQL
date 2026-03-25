@@ -1,14 +1,18 @@
+--===============================-=========================================
+-- 1. Produce cumulative revenue over time to understand long-term growth behavior.
+--=========================================================================
 SELECT 
     d.FullDate, 
     SUM(f.NetAmount) AS DailyRevenue, 
     SUM(SUM(f.NetAmount)) OVER (ORDER BY d.FullDate) AS CumulativeDailyRevenue
-FROM FactOrders f
-JOIN DimDate d ON f.DateKey = d.DateKey
+FROM AdventureWorksDW.dbo.FactOrders f
+JOIN AdventureWorksDW.dbo.DimDate d ON f.DateKey = d.DateKey
 GROUP BY d.FullDate;
 
 
-
--------------
+--===============================-=========================================
+-- 2. Measure Month-to-Date performance to evaluate intra-month trends.
+--=========================================================================
 
 SELECT 
     d.Year, 
@@ -20,13 +24,14 @@ SELECT
         ORDER BY d.FullDate 
         ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
     ) AS MonthToDateProfit
-FROM FactOrders f
-JOIN DimDate d ON f.DateKey = d.DateKey
+FROM AdventureWorksDW.dbo.FactOrders f
+JOIN AdventureWorksDW.dbo.DimDate d ON f.DateKey = d.DateKey
 GROUP BY d.Year, d.Month, d.FullDate
 ORDER BY d.Year, d.Month, d.FullDate;
 
-
-------------
+--===============================-=========================================
+--3. Measure Year-to-Date profit to assess annual performance progression.
+--=========================================================================
 
 SELECT 
     d.Year, 
@@ -38,13 +43,15 @@ SELECT
         ORDER BY d.FullDate 
         ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
     ) AS YearToDateProfit
-FROM FactOrders f
-JOIN DimDate d ON f.DateKey = d.DateKey
+FROM AdventureWorksDW.dbo.FactOrders f
+JOIN AdventureWorksDW.dbo.DimDate d ON f.DateKey = d.DateKey
 GROUP BY d.Year, d.Month, d.FullDate
 ORDER BY d.Year, d.Month, d.FullDate;
 
 
---------------
+--===============================-=========================================
+--4. Smooth short-term volatility using moving average trend analysis.
+--=========================================================================
 
 SELECT 
     d.FullDate, 
@@ -53,21 +60,22 @@ SELECT
         ORDER BY d.FullDate 
         ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
     ) AS MovingAverageProfit
-FROM FactOrders f
-JOIN DimDate d ON f.DateKey = d.DateKey
+FROM AdventureWorksDW.dbo.FactOrders f
+JOIN AdventureWorksDW.dbo.DimDate d ON f.DateKey = d.DateKey
 GROUP BY d.FullDate
 ORDER BY d.FullDate;
 
------------------
-
+--===============================-=========================================
+--5. Compare current month performance with previous month to detect growth or decline.
+--=========================================================================
 WITH MonthlyRevenue AS (
     SELECT 
         d.Year, 
         d.MonthName,
         d.Month, 
         SUM(f.NetAmount) AS CurrentMonthRevenue
-    FROM FactOrders f
-    JOIN DimDate d ON f.DateKey = d.DateKey
+    FROM AdventureWorksDW.dbo.FactOrders f
+    JOIN AdventureWorksDW.dbo.DimDate d ON f.DateKey = d.DateKey
     GROUP BY d.Year, d.MonthName, d.Month
 ),
 Comparison AS (
@@ -93,15 +101,17 @@ FROM Comparison
 ORDER BY Year, Month;
 
 
-------------
+--===============================-=========================================
+--6. Identify acceleration or deceleration in revenue dynamics.
+--=========================================================================
 
 
 WITH DailyRevenue AS (
     SELECT 
         d.FullDate, 
         SUM(f.NetAmount) AS DailyRevenue
-    FROM FactOrders f
-    JOIN DimDate d ON f.DateKey = d.DateKey
+    FROM AdventureWorksDW.dbo.FactOrders f
+    JOIN AdventureWorksDW.dbo.DimDate d ON f.DateKey = d.DateKey
     GROUP BY d.FullDate
 ),
 RevenueChange AS (
@@ -128,6 +138,4 @@ SELECT
     END AS AccelerationTrend
 FROM RevenueAcceleration
 ORDER BY FullDate;
-
---------------
 
